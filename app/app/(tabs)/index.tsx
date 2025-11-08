@@ -16,6 +16,12 @@ import {
 import { runOnJS } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import { scanFaces, type Face } from "vision-camera-face-detector";
+import * as FileSystem from "expo-file-system";
+
+const API_ENDPOINT =
+  process.env.EXPO_PUBLIC_VIEWER_ENDPOINT ??
+  "https://virtually-corps-details-habits.trycloudflare.com/api/v1/viewer";
+const DETECTION_DURATION_THRESHOLD_MS = 3000;
 
 export default function FaceDetectionScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -34,6 +40,9 @@ export default function FaceDetectionScreen() {
     null
   );
   const detectionStartRef = useRef<number | null>(null);
+  const cameraRef = useRef<Camera | null>(null);
+  const hasSentRef = useRef(false);
+  const isSendingRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,6 +78,86 @@ export default function FaceDetectionScreen() {
     });
   }, []);
 
+  const captureAndSend = useCallback(
+    async (startTimestamp: number, endTimestamp: number) => {
+      const camera = cameraRef.current;
+      if (camera == null) {
+        pushLog("Capture skipped: camera not ready");
+        return;
+      }
+      if (isSendingRef.current) {
+        return;
+      }
+
+      isSendingRef.current = true;
+      let fileUri: string | null = null;
+      try {
+        setStatusMessage("Capturing face…");
+        const photo = await camera.takePhoto({
+          flash: "off",
+          qualityPrioritization: "balanced",
+        });
+
+        const normalizedPath = photo.path.startsWith("file://")
+          ? photo.path
+          : `file://${photo.path}`;
+        fileUri = normalizedPath;
+
+        const imageBase64 = await FileSystem.readAsStringAsync(normalizedPath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const durationSeconds = Number(
+          ((endTimestamp - startTimestamp) / 1000).toFixed(2)
+        );
+        const payload = {
+          image_base64: imageBase64,
+          start_time: new Date(startTimestamp).toISOString(),
+          end_time: new Date(endTimestamp).toISOString(),
+          duration: durationSeconds,
+        };
+
+        pushLog("Uploading viewer payload…");
+        setStatusMessage("Uploading viewer…");
+        const response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          pushLog(
+            `Upload failed (${response.status}): ${
+              errorText || response.statusText
+            }`
+          );
+          setStatusMessage("Upload failed");
+          return;
+        }
+
+        pushLog("Viewer registered successfully");
+        setStatusMessage("Viewer registered!");
+      } catch (error) {
+        console.error("[FaceDetection] Failed to capture/send viewer", error);
+        const message =
+          error instanceof Error ? error.message : JSON.stringify(error);
+        pushLog(`Capture error: ${message}`);
+        setStatusMessage("Upload failed");
+      } finally {
+        isSendingRef.current = false;
+        if (fileUri) {
+          void FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(
+            () => undefined
+          );
+        }
+      }
+    },
+    [pushLog]
+  );
+
   const handleFaces = useCallback(
     (faces: Face[]) => {
       console.log("[FaceDetection] Faces detected:", faces.length);
@@ -78,7 +167,9 @@ export default function FaceDetectionScreen() {
 
       setHasFace(faces.length > 0);
       if (faces.length === 0) {
-        setStatusMessage("Searching…");
+        if (!isSendingRef.current) {
+          setStatusMessage("Searching…");
+        }
         pushLog("No faces in frame");
         hasAlertedRef.current = false;
         if (detectionStartRef.current != null) {
@@ -88,12 +179,15 @@ export default function FaceDetectionScreen() {
           pushLog(`Face lost after ${seconds}s`);
           detectionStartRef.current = null;
         }
+        hasSentRef.current = false;
         if (toastResetTimeoutRef.current) {
           clearTimeout(toastResetTimeoutRef.current);
           toastResetTimeoutRef.current = null;
         }
       } else {
-        setStatusMessage("Face detected!");
+        if (!isSendingRef.current) {
+          setStatusMessage("Face detected!");
+        }
         if (detectionStartRef.current == null) {
           detectionStartRef.current = Date.now();
           setLastDetectionDuration(null);
@@ -110,9 +204,25 @@ export default function FaceDetectionScreen() {
             toastResetTimeoutRef.current = null;
           }, 2500);
         }
+        if (
+          detectionStartRef.current != null &&
+          !hasSentRef.current &&
+          Date.now() - detectionStartRef.current >=
+            DETECTION_DURATION_THRESHOLD_MS
+        ) {
+          hasSentRef.current = true;
+          const now = Date.now();
+          pushLog(
+            `Face steady for ${(
+              (now - detectionStartRef.current) /
+              1000
+            ).toFixed(1)}s — capturing`
+          );
+          void captureAndSend(detectionStartRef.current, now);
+        }
       }
     },
-    [pushLog]
+    [captureAndSend, pushLog]
   );
 
   const frameProcessor = useFrameProcessor(
@@ -171,6 +281,8 @@ export default function FaceDetectionScreen() {
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isCameraActive}
+        ref={cameraRef}
+        photo
         onInitialized={() => {
           console.log("[FaceDetection] VisionCamera initialized");
           pushLog("Camera ready");
