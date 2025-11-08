@@ -1,3 +1,4 @@
+
 "use client"
 
 import {
@@ -15,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Dashboard2Stats, dashboard2Stats } from "../data/data"
+import { dashboard2Stats } from "../data/billboard-data"
 
 export default function Stats() {
   return (
@@ -36,7 +37,7 @@ function StatsCard({
   chartData,
   strokeColor,
   icon: Icon,
-}: Dashboard2Stats) {
+}: (typeof dashboard2Stats)[0]) {
   const chartConfig = {
     month: {
       label: "month",
@@ -45,7 +46,7 @@ function StatsCard({
   } satisfies ChartConfig
 
   return (
-    <Card className="col-span-3 h-full lg:col-span-2 xl:col-span-2">
+    <Card className="col-span-3 h-full lg:col-span-2 xl:col-span-3">
       <CardHeader className="flex flex-row items-center justify-between gap-5 space-y-0 pt-4 pb-2">
         <CardTitle className="flex items-center gap-2 truncate text-sm font-medium">
           <Icon size={16} />
@@ -66,7 +67,10 @@ function StatsCard({
       <CardContent className="flex h-[calc(100%_-_48px)] flex-col justify-between py-4">
         <div className="flex flex-col">
           <div className="flex flex-wrap items-center justify-between gap-6">
+            {/* 메인 값 표시 */}
             <div className="text-3xl font-bold">{stats.toLocaleString()}</div>
+            
+            {/* 미니 차트 */}
             <ChartContainer className="w-[70px]" config={chartConfig}>
               <LineChart accessibilityLayer data={chartData}>
                 <Line
@@ -82,6 +86,7 @@ function StatsCard({
           <p className="text-muted-foreground text-xs">Since Last week</p>
         </div>
 
+        {/* 변화율 표시 */}
         <div className="flex flex-wrap items-center justify-between gap-5">
           <div className="text-sm font-semibold">Details</div>
           <div
