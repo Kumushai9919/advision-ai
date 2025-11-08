@@ -25,11 +25,15 @@ export default function FaceDetectionScreen() {
   const [hasFace, setHasFace] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Searching…");
   const [logs, setLogs] = useState<string[]>([]);
+  const [lastDetectionDuration, setLastDetectionDuration] = useState<
+    string | null
+  >(null);
   const hasAlertedRef = useRef(false);
   const permissionRequestedRef = useRef(false);
   const toastResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const detectionStartRef = useRef<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,22 +81,35 @@ export default function FaceDetectionScreen() {
         setStatusMessage("Searching…");
         pushLog("No faces in frame");
         hasAlertedRef.current = false;
+        if (detectionStartRef.current != null) {
+          const durationMs = Date.now() - detectionStartRef.current;
+          const seconds = (durationMs / 1000).toFixed(1);
+          setLastDetectionDuration(`${seconds}s`);
+          pushLog(`Face lost after ${seconds}s`);
+          detectionStartRef.current = null;
+        }
         if (toastResetTimeoutRef.current) {
           clearTimeout(toastResetTimeoutRef.current);
           toastResetTimeoutRef.current = null;
         }
-      } else if (!hasAlertedRef.current) {
-        hasAlertedRef.current = true;
+      } else {
         setStatusMessage("Face detected!");
-        pushLog(`Detected ${faces.length} face(s)`);
-        if (toastResetTimeoutRef.current) {
-          clearTimeout(toastResetTimeoutRef.current);
+        if (detectionStartRef.current == null) {
+          detectionStartRef.current = Date.now();
+          setLastDetectionDuration(null);
+          pushLog(`Face entered (${faces.length})`);
         }
-        toastResetTimeoutRef.current = setTimeout(() => {
-          hasAlertedRef.current = false;
-          setStatusMessage("Searching…");
-          toastResetTimeoutRef.current = null;
-        }, 2500);
+        if (!hasAlertedRef.current) {
+          hasAlertedRef.current = true;
+          pushLog(`Detected ${faces.length} face(s)`);
+          if (toastResetTimeoutRef.current) {
+            clearTimeout(toastResetTimeoutRef.current);
+          }
+          toastResetTimeoutRef.current = setTimeout(() => {
+            hasAlertedRef.current = false;
+            toastResetTimeoutRef.current = null;
+          }, 2500);
+        }
       }
     },
     [pushLog]
@@ -189,6 +206,11 @@ export default function FaceDetectionScreen() {
         >
           {statusMessage}
         </Text>
+        {lastDetectionDuration && (
+          <Text style={styles.overlayDuration}>
+            Last detection: {lastDetectionDuration}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -255,6 +277,12 @@ const styles = StyleSheet.create({
   overlayStatus: {
     fontSize: 24,
     fontWeight: "700",
+  },
+  overlayDuration: {
+    marginTop: 8,
+    color: "#93c5fd",
+    fontSize: 16,
+    fontWeight: "500",
   },
   statusDetected: {
     color: "#34d399",
