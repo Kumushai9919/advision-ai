@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Search } from "@/components/search"
+import { SidebarTrigger } from "@/components/ui/sidebar" 
 import { ThemeSwitch } from "@/components/theme-switch"
 
 export function Header() {
@@ -14,8 +13,7 @@ export function Header() {
     >
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
-      <div className="flex w-full justify-between">
-        <Search />
+      <div className="flex w-full justify-end"> 
         <ThemeSwitch />
       </div>
     </header>
