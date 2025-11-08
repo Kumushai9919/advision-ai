@@ -1,0 +1,56 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies for InsightFace and OpenCV
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    cmake \
+    build-essential \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgl1 \
+    libxrender1 \
+    libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy broker package first (needed for worker)
+COPY broker /app/broker
+
+# Copy requirements and install Python dependencies
+COPY fr_worker/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all necessary Python files
+COPY fr_worker/face_worker.py .
+COPY fr_worker/face_task_handler.py .
+
+# Copy the models directory
+COPY fr_worker/models/ ./models/
+
+# Create non-root user for security FIRST
+RUN useradd -m -u 1000 worker
+
+# Create logs directory and set ownership
+RUN mkdir -p /app/logs && \
+    chown -R worker:worker /app
+
+# Switch to non-root user
+USER worker
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV LOG_LEVEL=INFO
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD python -c "import sys; sys.exit(0)"
+
+# Default command with dynamic worker ID based on hostname
+CMD ["sh", "-c", "python face_worker.py --worker-id worker-$(hostname) --host ${RABBITMQ_HOST:-rabbitmq}"]

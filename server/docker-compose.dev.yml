@@ -1,0 +1,32 @@
+# Docker Compose Development Override
+# This file contains development-specific configurations
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Or create an alias in your shell:
+#   alias dc-dev="docker-compose -f docker-compose.yml -f docker-compose.dev.yml"
+#   dc-dev up
+
+services:
+  face_worker:
+    # Volume mounts for live code changes (no rebuild needed)
+    volumes:
+      # Mount source code for hot reload
+      - ./fr_worker/face_worker.py:/app/face_worker.py
+      - ./fr_worker/face_task_handler.py:/app/face_task_handler.py
+
+      # Mount broker package for live updates
+      - ./broker:/app/broker
+
+      # Mount data directory (for LOCAL_FILE mode testing)
+      - ./fr_worker/data:/app/data
+
+      # Uncomment to access logs from host
+      # - ./fr_worker/logs:/app/logs
+
+    # Override environment variables for development
+    environment:
+      LOG_LEVEL: DEBUG
+      # Use local file for faster development (no API dependency)
+      # DATA_SOURCE: LOCAL_FILE

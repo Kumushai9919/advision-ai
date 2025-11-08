@@ -1,0 +1,161 @@
+{
+  "rabbit_version": "3.12.0",
+  "users": [
+    {
+      "name": "face_user",
+      "password": "secure_password",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/",
+      "tracing": false
+    },
+    {
+      "name": "/face_recognition",
+      "tracing": false
+    }
+  ],
+  "permissions": [
+    {
+      "user": "face_user",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "face_user",
+      "vhost": "/face_recognition",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "face_tasks",
+      "vhost": "/face_recognition",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {},
+      "_comment": "DIRECT EXCHANGE - Processing tasks routed to single worker"
+    },
+    {
+      "name": "cache_updates",
+      "vhost": "/face_recognition",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {},
+      "_comment": "FANOUT EXCHANGE - Management tasks broadcast to ALL workers for cache sync"
+    }
+  ],
+  "queues": [
+    {
+      "name": "face_processing_tasks",
+      "vhost": "/face_recognition",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 1800000,
+        "x-max-length": 10000,
+        "x-max-priority": 10
+      },
+      "_comment": "SINGLE WORKER processing queue - face_recognition, face_detection, face_embedding, get_user_faces, get_cache_stats, health_check"
+    },
+    {
+      "name": "face_management_tasks",
+      "vhost": "/face_recognition",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 600000,
+        "x-max-length": 5000,
+        "x-max-priority": 10
+      },
+      "_comment": "BACKWARD COMPATIBILITY - Legacy management tasks (workers still consume from this queue)"
+    }
+  ],
+  "bindings": [
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "face_detection",
+      "arguments": {},
+      "_comment": "Processing: detect_faces() -> single worker"
+    },
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "face_recognition",
+      "arguments": {},
+      "_comment": "Processing: recognize_face() -> single worker"
+    },
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "face_embedding",
+      "arguments": {},
+      "_comment": "Processing: generate_embedding() -> single worker"
+    },
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "get_user_faces",
+      "arguments": {},
+      "_comment": "Processing: get_user_faces() -> single worker"
+    },
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "get_cache_stats",
+      "arguments": {},
+      "_comment": "Processing: get_cache_stats() -> single worker"
+    },
+    {
+      "source": "face_tasks",
+      "vhost": "/face_recognition",
+      "destination": "face_processing_tasks",
+      "destination_type": "queue",
+      "routing_key": "health_check",
+      "arguments": {},
+      "_comment": "Processing: health_check() -> single worker"
+    }
+  ],
+  "_architecture_notes": {
+    "current_implementation": {
+      "description": "Simplified architecture matching actual code implementation",
+      "fanout_pattern": "Management tasks (create_user, delete_user, add_face, delete_face, create_company, delete_company) use cache_updates fanout exchange",
+      "direct_pattern": "Processing tasks (recognize_face, detect_faces, generate_embedding, get_user_faces, get_cache_stats, health_check) use face_tasks direct exchange",
+      "response_handling": "Direct request-response using correlation IDs and reply_to queues (temporary exclusive queues)",
+      "cache_sync": "Workers create exclusive queues bound to cache_updates exchange at runtime",
+      "backward_compatibility": "face_management_tasks queue still consumed by workers but not used by current publisher"
+    },
+    "removed_components": {
+      "unused_exchanges": ["results", "dlx_failed_tasks"],
+      "unused_queues": ["face_processing_results", "face_detection_results", "face_recognition_results", "error_results", "dlq_processing_failed", "dlq_management_failed"],
+      "unused_bindings": ["All result routing bindings", "All dead letter bindings"],
+      "reason": "Current implementation uses direct request-response pattern, not separate result processing pipelines"
+    },
+    "dynamic_components": {
+      "fanout_queues": "Each worker creates exclusive queue (amq.gen-*) and binds to cache_updates exchange",
+      "response_queues": "Publisher creates temporary exclusive queue for receiving responses",
+      "lifecycle": "Both are auto-deleted when connection closes"
+    }
+  }
+}

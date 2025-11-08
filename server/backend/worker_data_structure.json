@@ -1,0 +1,31 @@
+{
+  "companies": [
+    "company_123",
+    "company_456"
+  ],
+  "users": {
+    "company_123": {
+      "user_001": {
+        "user_id": "user_001",
+        "faces": ["face_001", "face_002"]
+      },
+      "user_002": {
+        "user_id": "user_002",
+        "faces": ["face_003"]
+      }
+    },
+    "company_456": {
+      "user_003": {
+        "user_id": "user_003",
+        "faces": ["face_004", "face_005"]
+      }
+    }
+  },
+  "embeddings": {
+    "face_001": [0.123, -0.456, 0.789],
+    "face_002": [0.234, -0.567, 0.890],
+    "face_003": [0.345, -0.678, 0.901],
+    "face_004": [0.456, -0.789, 0.012],
+    "face_005": [0.567, -0.890, 0.123]
+  }
+}

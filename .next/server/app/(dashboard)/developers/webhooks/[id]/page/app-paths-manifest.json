@@ -1,3 +1,0 @@
-{
-  "/(dashboard)/developers/webhooks/[id]/page": "app/(dashboard)/developers/webhooks/[id]/page.js"
-}

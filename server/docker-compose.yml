@@ -1,0 +1,189 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  db:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-face_auth_db}
+      - POSTGRES_USER=${POSTGRES_USER:-face_auth_db}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-hg5HtRVB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"      # ✅ Allow 200 connections
+      - "-c"
+      - "shared_buffers=256MB"     # ✅ Better performance
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-face_auth_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - face-auth-network
+
+  # 2. RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: face_recognition_rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-face_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-secure_password}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/face_recognition}
+    volumes:
+      - ./broker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./broker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - face-auth-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 3. MinIO
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-face_auth_admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-fvsGtRTY}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin123}
+    volumes:
+      - ./object_storage:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - face-auth-network
+
+  # 4. MinIO Setup
+  minio-setup:
+    image: minio/mc:latest
+    volumes:
+      - ./backend/minio-policy.json:/tmp/policy.json:ro
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO to be ready...';
+      sleep 10;
+      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-face_auth_admin} ${MINIO_ROOT_PASSWORD:-fvsGtRTY};
+      mc mb myminio/face-images --ignore-existing;
+      mc anonymous set-json /tmp/policy.json myminio/face-images;
+      echo 'MinIO bucket created and configured successfully';
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - face-auth-network
+    restart: "no"
+    labels:
+      - "com.docker.compose.oneoff=True"
+
+  # 5. FastAPI Backend
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/src:/app/src
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/health\").read()'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    networks:
+      - face-auth-network
+    restart: unless-stopped
+
+  # 6. Face Worker
+  face_worker:
+    build:
+      context: .
+      dockerfile: fr_worker/Dockerfile.worker
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-face_user}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-secure_password}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/face_recognition}
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-5}
+      WORKER_PREFETCH_COUNT: ${WORKER_PREFETCH_COUNT:-1}
+      WORKER_PROCESSING_TIMEOUT: ${WORKER_PROCESSING_TIMEOUT:-30.0}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Data Loading Configuration
+      DATA_SOURCE: ${DATA_SOURCE:-API}
+      DATA_FILE: ${DATA_FILE:-data/initial_db.json}
+      API_URL: ${API_URL:-http://app:8000/api/v1/worker/}
+      API_TIMEOUT: ${API_TIMEOUT:-30}
+      # Face Recognition Configuration
+      FACE_RECOGNITION_THRESHOLD: ${FACE_RECOGNITION_THRESHOLD:-0.7}
+      FACE_DETECTION_THRESHOLD: ${FACE_DETECTION_THRESHOLD:-0.5}
+      # Python logging configuration
+      PYTHONUNBUFFERED: 1
+    networks:
+      - face-auth-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    labels:
+      - "service=face_worker"
+      - "component=worker"
+
+networks:
+  face-auth-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
