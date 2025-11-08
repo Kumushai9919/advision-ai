@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Date, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from ..database.core import Base 
 
@@ -8,7 +9,7 @@ class Detection(Base):
     __tablename__ = "detections"
     
     id = Column(Integer, primary_key=True, index=True)
-    face_id = Column(Integer, ForeignKey("faces.id"), index=True)
+    face_id = Column(UUID(as_uuid=True), ForeignKey("faces.id"), index=True)
     billboard_id = Column(Integer, ForeignKey("billboards.id"), index=True)
     
     # STORE THESE STATICALLY

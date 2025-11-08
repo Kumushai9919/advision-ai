@@ -51,7 +51,7 @@ class UserService:
             self.db.rollback()
             logger.error(f"Error creating user: {e}")
             raise
-    
+
     def get_or_create(self, user_id: str, org_id: str) -> Tuple[User, bool]:
         """Get existing user or create new one. Returns (user, is_new)"""
         user = self.get_by_user_id(user_id, org_id)

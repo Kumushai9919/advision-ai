@@ -11,8 +11,11 @@ class User(Base):
     user_id = Column(String, unique=True, nullable=False)
     org_id = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-
+    
+    # Relationships
     faces = relationship("Face", backref="user", lazy="select")
+    viewing_sessions = relationship("ViewingSession", back_populates="user", cascade="all, delete-orphan")
+    analytics = relationship("Analytics", back_populates="user", cascade="all, delete-orphan", uselist=False)
     
     def __repr__(self):
         return f"<User(id={self.id}, user_id={self.user_id}, org_id={self.org_id}, is_active={self.is_active})>"

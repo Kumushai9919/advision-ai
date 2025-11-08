@@ -37,7 +37,10 @@ class AuthService:
         image_content: bytes,
         ext: str,
         user_id: str,
-        org_id: str
+        org_id: str,
+        start_time: str,
+        end_time: str,
+        duration: int
     ) -> FaceRegisterResponse:
         """
         Register a face for a user

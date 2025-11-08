@@ -7,6 +7,7 @@ from src.api.v1.auth.controller import router as auth_router
 from src.api.v1.user.controller import router as user_router
 from src.api.v1.worker.controller import router as worker_router
 from src.api.v1.org.controller import router as org_router
+from src.api.v1.analytics.controller import router as analytics_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,11 +31,11 @@ app.include_router(
     tags=["users"]
 )
 
-# app.include_router(
-#     None,
-#     prefix=f"{settings.API_V1_PREFIX}/analytics",
-#     tags=["analytics"]
-# )
+app.include_router(
+    analytics_router,
+    prefix=f"{settings.API_V1_PREFIX}/analytics",
+    tags=["analytics"]
+)
 
 app.include_router(
     worker_router,
@@ -47,8 +48,6 @@ app.include_router(
     prefix=f"{settings.API_V1_PREFIX}/orgs",
     tags=["orgs"]
 )
-
-
 
 @app.get("/api/v1/health")
 def read_root():
