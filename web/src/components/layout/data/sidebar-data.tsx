@@ -46,14 +46,6 @@ export const sidebarData: SidebarData = {
               title: "역삼동",
               url: "/",
             },
-            {
-              title: "강남",
-              url: "/1",
-            },
-            {
-              title: "중랑구",
-              url: "/2",
-            }
           ],
         },
       ],
