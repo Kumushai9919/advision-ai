@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,239 +12,261 @@ import {
   useCameraPermission,
   useFrameProcessor,
 } from "react-native-vision-camera";
-import { runOnJS } from "react-native-reanimated";
-import { useFocusEffect } from "@react-navigation/native";
-import { scanFaces, type Face } from "vision-camera-face-detector";
-import * as FileSystem from "expo-file-system";
+import { Worklets } from "react-native-worklets-core";
+import {
+  useFaceDetector,
+  type Face,
+} from "react-native-vision-camera-face-detector";
+import * as FileSystem from "expo-file-system/legacy";
 
-const API_ENDPOINT =
-  process.env.EXPO_PUBLIC_VIEWER_ENDPOINT ??
-  "https://virtually-corps-details-habits.trycloudflare.com/api/v1/viewer";
-const DETECTION_DURATION_THRESHOLD_MS = 3000;
+const formatTimestamp = (date: Date) => {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 
 export default function FaceDetectionScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice("front");
-  const [isScreenFocused, setIsScreenFocused] = useState(true);
-  const [isCameraInitialized, setIsCameraInitialized] = useState(false);
-  const [hasFace, setHasFace] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Searching…");
-  const [logs, setLogs] = useState<string[]>([]);
-  const [lastDetectionDuration, setLastDetectionDuration] = useState<
-    string | null
-  >(null);
-  const hasAlertedRef = useRef(false);
-  const permissionRequestedRef = useRef(false);
-  const toastResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const detectionStartRef = useRef<number | null>(null);
   const cameraRef = useRef<Camera | null>(null);
-  const hasSentRef = useRef(false);
-  const isSendingRef = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      setIsScreenFocused(true);
-      return () => setIsScreenFocused(false);
-    }, [])
+  const [isReady, setIsReady] = useState(false);
+  const [hasFace, setHasFace] = useState(false);
+  const [detectionDurationMs, setDetectionDurationMs] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+  const detectionStartRef = useRef<number | null>(null);
+  const detectionStartTimeRef = useRef<number | null>(null);
+  const uploadTriggeredRef = useRef(false);
+  const currentFrameTrackingIdRef = useRef<number | undefined>(undefined);
+  const lastFaceTrackingIdRef = useRef<number | undefined>(undefined);
+  const faceDetectorOptions = useMemo(
+    () => ({
+      performanceMode: "accurate" as const,
+      classificationMode: "all" as const,
+      contourMode: "all" as const,
+      trackingEnabled: true,
+      cameraFacing: device?.position ?? "front",
+    }),
+    [device?.position]
   );
+  const faceDetector = useFaceDetector(faceDetectorOptions);
 
-  useEffect(() => {
-    console.log(
-      "[FaceDetection] Camera permission status:",
-      hasPermission ? "granted" : "not granted"
-    );
-    setLogs((current) => [
-      `[${new Date().toLocaleTimeString()}] Permission: ${
-        hasPermission ? "granted" : "not granted"
-      }`,
-      ...current,
-    ]);
-  }, [hasPermission]);
-
-  useEffect(() => {
-    if (!hasPermission && !permissionRequestedRef.current) {
-      permissionRequestedRef.current = true;
-      void requestPermission();
-    }
-  }, [hasPermission, requestPermission]);
-
-  const pushLog = useCallback((message: string) => {
-    setLogs((current) => {
-      const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
-      return [entry, ...current].slice(0, 6);
-    });
-  }, []);
-
-  const captureAndSend = useCallback(
-    async (startTimestamp: number, endTimestamp: number) => {
-      const camera = cameraRef.current;
-      if (camera == null) {
-        pushLog("Capture skipped: camera not ready");
-        return;
-      }
-      if (isSendingRef.current) {
-        return;
-      }
-
-      isSendingRef.current = true;
-      let fileUri: string | null = null;
-      try {
-        setStatusMessage("Capturing face…");
-        const photo = await camera.takePhoto({
-          flash: "off",
-          qualityPrioritization: "balanced",
-        });
-
-        const normalizedPath = photo.path.startsWith("file://")
-          ? photo.path
-          : `file://${photo.path}`;
-        fileUri = normalizedPath;
-
-        const imageBase64 = await FileSystem.readAsStringAsync(normalizedPath, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const durationSeconds = Number(
-          ((endTimestamp - startTimestamp) / 1000).toFixed(2)
-        );
-        const payload = {
-          image_base64: imageBase64,
-          start_time: new Date(startTimestamp).toISOString(),
-          end_time: new Date(endTimestamp).toISOString(),
-          duration: durationSeconds,
-        };
-
-        pushLog("Uploading viewer payload…");
-        setStatusMessage("Uploading viewer…");
-        const response = await fetch(API_ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          pushLog(
-            `Upload failed (${response.status}): ${
-              errorText || response.statusText
-            }`
-          );
-          setStatusMessage("Upload failed");
-          return;
+  const runOnFacesDetected = useMemo(
+    () =>
+      Worklets.createRunOnJS((faces: Face[]) => {
+        console.log("[FaceDetection] Faces detected:", faces.length);
+        if (faces.length > 0) {
+          const [primaryFace] = faces;
+          const { bounds, trackingId } = primaryFace;
+          console.log("[FaceDetection] Example face bounds:", bounds);
+          currentFrameTrackingIdRef.current = trackingId ?? undefined;
+        } else {
+          currentFrameTrackingIdRef.current = undefined;
         }
 
-        pushLog("Viewer registered successfully");
-        setStatusMessage("Viewer registered!");
-      } catch (error) {
-        console.error("[FaceDetection] Failed to capture/send viewer", error);
-        const message =
-          error instanceof Error ? error.message : JSON.stringify(error);
-        pushLog(`Capture error: ${message}`);
-        setStatusMessage("Upload failed");
-      } finally {
-        isSendingRef.current = false;
-        if (fileUri) {
-          void FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(
-            () => undefined
-          );
-        }
-      }
-    },
-    [pushLog]
-  );
-
-  const handleFaces = useCallback(
-    (faces: Face[]) => {
-      console.log("[FaceDetection] Faces detected:", faces.length);
-      if (faces.length > 0) {
-        console.log("[FaceDetection] Example face bounds:", faces[0].bounds);
-      }
-
-      setHasFace(faces.length > 0);
-      if (faces.length === 0) {
-        if (!isSendingRef.current) {
-          setStatusMessage("Searching…");
-        }
-        pushLog("No faces in frame");
-        hasAlertedRef.current = false;
-        if (detectionStartRef.current != null) {
-          const durationMs = Date.now() - detectionStartRef.current;
-          const seconds = (durationMs / 1000).toFixed(1);
-          setLastDetectionDuration(`${seconds}s`);
-          pushLog(`Face lost after ${seconds}s`);
-          detectionStartRef.current = null;
-        }
-        hasSentRef.current = false;
-        if (toastResetTimeoutRef.current) {
-          clearTimeout(toastResetTimeoutRef.current);
-          toastResetTimeoutRef.current = null;
-        }
-      } else {
-        if (!isSendingRef.current) {
-          setStatusMessage("Face detected!");
-        }
-        if (detectionStartRef.current == null) {
-          detectionStartRef.current = Date.now();
-          setLastDetectionDuration(null);
-          pushLog(`Face entered (${faces.length})`);
-        }
-        if (!hasAlertedRef.current) {
-          hasAlertedRef.current = true;
-          pushLog(`Detected ${faces.length} face(s)`);
-          if (toastResetTimeoutRef.current) {
-            clearTimeout(toastResetTimeoutRef.current);
+        setHasFace((prev) => {
+          const nextHasFace = faces.length > 0;
+          if (nextHasFace) {
+            const now = Date.now();
+            if (detectionStartRef.current == null) {
+              detectionStartRef.current = now;
+              detectionStartTimeRef.current = now;
+              uploadTriggeredRef.current = false;
+              setUploadStatus("idle");
+              setIsUploading(false);
+            }
+            setDetectionDurationMs(now - detectionStartRef.current);
+          } else {
+            detectionStartRef.current = null;
+            detectionStartTimeRef.current = null;
+            lastFaceTrackingIdRef.current = undefined;
+            uploadTriggeredRef.current = false;
+            setUploadStatus("idle");
+            setIsUploading(false);
+            setDetectionDurationMs(0);
           }
-          toastResetTimeoutRef.current = setTimeout(() => {
-            hasAlertedRef.current = false;
-            toastResetTimeoutRef.current = null;
-          }, 2500);
-        }
-        if (
-          detectionStartRef.current != null &&
-          !hasSentRef.current &&
-          Date.now() - detectionStartRef.current >=
-            DETECTION_DURATION_THRESHOLD_MS
-        ) {
-          hasSentRef.current = true;
-          const now = Date.now();
-          pushLog(
-            `Face steady for ${(
-              (now - detectionStartRef.current) /
-              1000
-            ).toFixed(1)}s — capturing`
-          );
-          void captureAndSend(detectionStartRef.current, now);
-        }
-      }
-    },
-    [captureAndSend, pushLog]
+          return nextHasFace;
+        });
+      }),
+    []
   );
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
-      const detectedFaces = scanFaces(frame);
-      runOnJS(handleFaces)(detectedFaces);
+      const faces = faceDetector.detectFaces(frame);
+      runOnFacesDetected(faces);
     },
-    [handleFaces]
+    [faceDetector, runOnFacesDetected]
   );
-
-  const isCameraActive = useMemo(() => {
-    return Boolean(hasPermission && device && isScreenFocused);
-  }, [device, hasPermission, isScreenFocused]);
 
   useEffect(() => {
     return () => {
-      if (toastResetTimeoutRef.current) {
-        clearTimeout(toastResetTimeoutRef.current);
-        toastResetTimeoutRef.current = null;
-      }
+      faceDetector.stopListeners();
     };
-  }, []);
+  }, [faceDetector]);
+
+  useEffect(() => {
+    if (!device) {
+      faceDetector.stopListeners();
+    }
+  }, [device, faceDetector]);
+
+  const captureAndSendSnapshot = useCallback(async () => {
+    if (!cameraRef.current || detectionStartTimeRef.current == null) {
+      return;
+    }
+    let snapshotUri: string | null = null;
+    const startTimeMs = detectionStartTimeRef.current;
+    try {
+      setIsUploading(true);
+      const snapshot = await cameraRef.current.takeSnapshot({
+        quality: 85,
+      });
+
+      snapshotUri = snapshot.path.startsWith("file://")
+        ? snapshot.path
+        : `file://${snapshot.path}`;
+
+      const imageBase64 = await FileSystem.readAsStringAsync(snapshotUri, {
+        encoding: "base64",
+      });
+
+      if (startTimeMs == null) {
+        throw new Error("Missing detection start time");
+      }
+
+      const startDate = new Date(startTimeMs);
+      const endDate = new Date();
+      const startTime = formatTimestamp(startDate);
+      const endTime = formatTimestamp(endDate);
+      const durationSeconds = Math.max(
+        3,
+        Math.round(detectionDurationMs / 1000)
+      );
+
+      const imageDataUri = `data:image/jpeg;base64,${imageBase64}`;
+
+      const formData = new FormData();
+      formData.append("image_base64", imageDataUri);
+      formData.append("start_time", startTime);
+      formData.append("end_time", endTime);
+      formData.append("duration", durationSeconds.toString());
+      formData.append("org_id", "default_org");
+
+      console.log("[FaceDetection] Upload form data", {
+        image_base64_length: imageDataUri.length,
+        image_base64_sample: imageDataUri.substring(0, 64),
+        start_time: startTime,
+        end_time: endTime,
+        duration: durationSeconds,
+        org_id: "default_org",
+      });
+
+      const response = await fetch("http://14.138.145.45:8000/api/v1/viewer", {
+        method: "POST",
+        body: formData,
+      });
+
+      const responseText = await response.text();
+      console.log("[FaceDetection] Upload response", {
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: responseText,
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Viewer API status ${response.status}: ${responseText || "no body"}`
+        );
+      }
+
+      setUploadStatus("success");
+    } catch (error) {
+      console.error("[FaceDetection] Failed to upload viewer payload", error);
+      uploadTriggeredRef.current = false;
+      setUploadStatus("error");
+    } finally {
+      setIsUploading(false);
+      if (snapshotUri) {
+        try {
+          await FileSystem.deleteAsync(snapshotUri, { idempotent: true });
+        } catch (cleanupError) {
+          console.warn(
+            "[FaceDetection] Failed to cleanup snapshot file",
+            cleanupError
+          );
+        }
+      }
+    }
+  }, [detectionDurationMs]);
+
+  useEffect(() => {
+    const FACE_HOLD_THRESHOLD_MS = 3000;
+
+    if (!hasFace) {
+      return;
+    }
+
+    const currentTrackingId = currentFrameTrackingIdRef.current;
+
+    if (
+      currentTrackingId != null &&
+      lastFaceTrackingIdRef.current != null &&
+      currentTrackingId !== lastFaceTrackingIdRef.current
+    ) {
+      // New face detected
+      detectionStartRef.current = null;
+      detectionStartTimeRef.current = null;
+      lastFaceTrackingIdRef.current = undefined;
+      uploadTriggeredRef.current = false;
+      setUploadStatus("idle");
+      setIsUploading(false);
+    }
+
+    if (detectionStartRef.current == null) {
+      const now = Date.now();
+      detectionStartRef.current = now;
+      detectionStartTimeRef.current = now;
+      uploadTriggeredRef.current = false;
+      setUploadStatus("idle");
+      setIsUploading(false);
+    }
+
+    if (
+      detectionDurationMs >= FACE_HOLD_THRESHOLD_MS &&
+      !uploadTriggeredRef.current
+    ) {
+      uploadTriggeredRef.current = true;
+      if (currentTrackingId != null) {
+        lastFaceTrackingIdRef.current = currentTrackingId;
+      }
+      captureAndSendSnapshot();
+    }
+  }, [captureAndSendSnapshot, detectionDurationMs, hasFace]);
+
+  useEffect(() => {
+    if (!hasFace) {
+      uploadTriggeredRef.current = false;
+      lastFaceTrackingIdRef.current = undefined;
+    }
+  }, [hasFace]);
+
+  if (hasPermission == null) {
+    return (
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.message}>Checking camera permissions…</Text>
+      </View>
+    );
+  }
 
   if (!hasPermission) {
     return (
@@ -260,54 +281,37 @@ export default function FaceDetectionScreen() {
     );
   }
 
-  if (device == null) {
+  if (!device) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" />
-        <Text style={styles.message}>Loading camera…</Text>
+        <Text style={styles.message}>
+          Looking for a compatible front camera…
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {!isCameraInitialized && (
+      {!isReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Preparing camera…</Text>
         </View>
       )}
       <Camera
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={isCameraActive}
-        ref={cameraRef}
+        isActive
         photo
-        onInitialized={() => {
-          console.log("[FaceDetection] VisionCamera initialized");
-          pushLog("Camera ready");
-          setStatusMessage("Searching…");
-          setIsCameraInitialized(true);
-        }}
         frameProcessor={frameProcessor}
+        onInitialized={() => {
+          console.log("[FaceDetection] Camera ready");
+          setIsReady(true);
+        }}
       />
-      <View style={styles.logPanel}>
-        <Text style={styles.logTitle}>Live Logs</Text>
-        <ScrollView
-          style={styles.logScroll}
-          contentContainerStyle={styles.logContent}
-        >
-          {logs.length === 0 ? (
-            <Text style={styles.logEmpty}>Waiting for events…</Text>
-          ) : (
-            logs.map((log, index) => (
-              <Text style={styles.logEntry} key={index}>
-                {log}
-              </Text>
-            ))
-          )}
-        </ScrollView>
-      </View>
       <View style={styles.overlay}>
         <Text style={styles.overlayTitle}>Point the camera towards a face</Text>
         <Text
@@ -316,11 +320,19 @@ export default function FaceDetectionScreen() {
             hasFace ? styles.statusDetected : styles.statusSearching,
           ]}
         >
-          {statusMessage}
+          {hasFace
+            ? `Face detected for ${(detectionDurationMs / 1000).toFixed(1)}s`
+            : "Searching…"}
         </Text>
-        {lastDetectionDuration && (
-          <Text style={styles.overlayDuration}>
-            Last detection: {lastDetectionDuration}
+        {hasFace && (
+          <Text style={styles.overlaySubStatus}>
+            {isUploading
+              ? "Uploading snapshot…"
+              : uploadStatus === "success"
+              ? "Snapshot sent"
+              : uploadStatus === "error"
+              ? "Upload failed – hold steady to retry"
+              : "Hold steady for 3 seconds to capture"}
           </Text>
         )}
       </View>
@@ -390,50 +402,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
   },
-  overlayDuration: {
+  overlaySubStatus: {
     marginTop: 8,
-    color: "#93c5fd",
+    color: "#e5e7eb",
     fontSize: 16,
-    fontWeight: "500",
   },
   statusDetected: {
     color: "#34d399",
   },
   statusSearching: {
     color: "#fbbf24",
-  },
-  logPanel: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    right: 20,
-    maxHeight: 160,
-    backgroundColor: "rgba(17, 24, 39, 0.85)",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: "rgba(59, 130, 246, 0.35)",
-  },
-  logTitle: {
-    color: "#93c5fd",
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  logScroll: {
-    maxHeight: 110,
-  },
-  logContent: {
-    gap: 4,
-  },
-  logEntry: {
-    color: "#e5e7eb",
-    fontSize: 12,
-  },
-  logEmpty: {
-    color: "#9ca3af",
-    fontSize: 12,
-    fontStyle: "italic",
   },
 });
