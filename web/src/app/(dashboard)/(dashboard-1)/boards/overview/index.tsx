@@ -65,12 +65,9 @@ export default function Overview() {
 
         const response = await fetch(url, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          // Add mode and credentials for CORS if needed
-          mode: "cors",
-        })
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => response.statusText)
