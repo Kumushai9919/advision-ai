@@ -63,5 +63,6 @@ When a viewer visits a partner store, their anonymized token is matched automati
 - **Mark** – Mobile App Developer (Camera Integration)
 
 ---
+<img width="1183" height="563" alt="Screenshot 2025-11-11 at 9 49 33 AM" src="https://github.com/user-attachments/assets/16a4e87e-f42d-42cb-9271-7806398687c3" />
 
 © 2025 AdVision AI. All rights reserved.
