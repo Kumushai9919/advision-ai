@@ -1,0 +1,100 @@
+{
+  "success": true,
+  "org_id": "default_org",
+  "period": {
+    "start": "2025-11-03",
+    "end": "2025-11-09",
+    "days": 7
+  },
+  "data": {
+    "summary": {
+      "total_viewers": 1247,
+      "difference_total_viewers_percentage": 15.3,
+      "total_new_viewers": 189,
+      "total_customers": 87,
+      "difference_total_customers_percentage": 12.8,
+      "average_view_time": 124,
+      "difference_average_view_time": 8.5
+    },
+    "daily_history": [
+      {
+        "date": "2025-11-03",
+        "day_of_week": "Sunday",
+        "viewers": 165,
+        "customers": 11,
+        "average_view_time": 118
+      },
+      {
+        "date": "2025-11-04",
+        "day_of_week": "Monday",
+        "viewers": 189,
+        "customers": 14,
+        "average_view_time": 132
+      },
+      {
+        "date": "2025-11-05",
+        "day_of_week": "Tuesday",
+        "viewers": 201,
+        "customers": 16,
+        "average_view_time": 128
+      },
+      {
+        "date": "2025-11-06",
+        "day_of_week": "Wednesday",
+        "viewers": 178,
+        "customers": 12,
+        "average_view_time": 119
+      },
+      {
+        "date": "2025-11-07",
+        "day_of_week": "Thursday",
+        "viewers": 156,
+        "customers": 10,
+        "average_view_time": 115
+      },
+      {
+        "date": "2025-11-08",
+        "day_of_week": "Friday",
+        "viewers": 192,
+        "customers": 13,
+        "average_view_time": 127
+      },
+      {
+        "date": "2025-11-09",
+        "day_of_week": "Saturday",
+        "viewers": 166,
+        "customers": 11,
+        "average_view_time": 129
+      }
+    ],
+    "ranking": [
+      {
+        "rank": 1,
+        "billboard_id": "billboard_gangnam",
+        "name": "Gangnam Station Digital Billboard",
+        "location": "Gangnam Station Exit 10",
+        "views": 523,
+        "visit_by_view": 8.2,
+        "viewing_duration": 135
+      },
+      {
+        "rank": 2,
+        "billboard_id": "billboard_hongdae",
+        "name": "Hongdae AK Plaza Billboard",
+        "location": "Hongdae Main Street",
+        "views": 412,
+        "visit_by_view": 6.9,
+        "viewing_duration": 128
+      },
+      {
+        "rank": 3,
+        "billboard_id": "billboard_myeongdong",
+        "name": "Myeongdong Shopping District",
+        "location": "Myeongdong Street Corner",
+        "views": 312,
+        "visit_by_view": 5.8,
+        "viewing_duration": 112
+      }
+    ]
+  }
+}

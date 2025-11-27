@@ -64,30 +64,6 @@ interface RankingItem {
 // ============================================
 
 const columns: ColumnDef<BillboardInfo>[] = [
-  // 선택 체크박스
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-
   // 광고판 이름
   {
     accessorKey: "name",
@@ -301,16 +277,16 @@ export default function Ads({ ranking }: AdsProps) {
     const uniqueVisitors = Math.round(item.views * item.visit_by_view)
     // Estimate customers as a percentage of unique visitors (using a conversion rate)
     const estimatedCustomers = Math.round(uniqueVisitors * 0.1) // 10% conversion rate estimate
-    
+
     // Convert viewing_duration from minutes to seconds for average_view_time
     const averageViewTimeSeconds = Math.round(item.viewing_duration * 60)
-    
+
     // Calculate conversion rate (customers / viewers)
     const conversionRate = item.views > 0 ? (estimatedCustomers / item.views) * 100 : 0
-    
+
     // Estimate revenue (views * some multiplier, e.g., 1000 won per view)
     const estimatedRevenue = item.views * 10000 // 10,000 won per view
-    
+
     return {
       id: item.billboard_id,
       name: item.name || `Billboard ${item.billboard_id}`,
@@ -370,7 +346,7 @@ export default function Ads({ ranking }: AdsProps) {
             </span>
           </div>
 
-     
+
         </div>
 
         {/* 테이블 */}
@@ -388,9 +364,9 @@ export default function Ads({ ranking }: AdsProps) {
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       </TableHead>
                     )
                   })}

@@ -1,0 +1,92 @@
+{
+  "success": true,
+  "org_id": "second",
+  "period": {
+    "start": "2025-10-27",
+    "end": "2025-11-27",
+    "days": 31
+  },
+  "data": {
+    "summary": {
+      "total_viewers": 9234,
+      "difference_total_viewers_percentage": 19.5,
+      "total_new_viewers": 1456,
+      "total_customers": 678,
+      "difference_total_customers_percentage": 15.8,
+      "average_view_time": 138,
+      "difference_average_view_time": 9.7
+    },
+    "daily_history": [
+      {"date": "2025-10-27", "day_of_week": "Monday", "viewers": 287, "customers": 19, "average_view_time": 135},
+      {"date": "2025-10-28", "day_of_week": "Tuesday", "viewers": 312, "customers": 24, "average_view_time": 142},
+      {"date": "2025-10-29", "day_of_week": "Wednesday", "viewers": 298, "customers": 21, "average_view_time": 138},
+      {"date": "2025-10-30", "day_of_week": "Thursday", "viewers": 276, "customers": 18, "average_view_time": 132},
+      {"date": "2025-10-31", "day_of_week": "Friday", "viewers": 321, "customers": 25, "average_view_time": 145},
+      {"date": "2025-11-01", "day_of_week": "Saturday", "viewers": 345, "customers": 28, "average_view_time": 148},
+      {"date": "2025-11-02", "day_of_week": "Sunday", "viewers": 298, "customers": 22, "average_view_time": 140},
+      {"date": "2025-11-03", "day_of_week": "Monday", "viewers": 289, "customers": 20, "average_view_time": 136},
+      {"date": "2025-11-04", "day_of_week": "Tuesday", "viewers": 305, "customers": 23, "average_view_time": 139},
+      {"date": "2025-11-05", "day_of_week": "Wednesday", "viewers": 318, "customers": 25, "average_view_time": 143},
+      {"date": "2025-11-06", "day_of_week": "Thursday", "viewers": 292, "customers": 21, "average_view_time": 137},
+      {"date": "2025-11-07", "day_of_week": "Friday", "viewers": 334, "customers": 27, "average_view_time": 146},
+      {"date": "2025-11-08", "day_of_week": "Saturday", "viewers": 356, "customers": 29, "average_view_time": 149},
+      {"date": "2025-11-09", "day_of_week": "Sunday", "viewers": 312, "customers": 24, "average_view_time": 141},
+      {"date": "2025-11-10", "day_of_week": "Monday", "viewers": 295, "customers": 22, "average_view_time": 138},
+      {"date": "2025-11-11", "day_of_week": "Tuesday", "viewers": 308, "customers": 24, "average_view_time": 140},
+      {"date": "2025-11-12", "day_of_week": "Wednesday", "viewers": 321, "customers": 26, "average_view_time": 144},
+      {"date": "2025-11-13", "day_of_week": "Thursday", "viewers": 287, "customers": 20, "average_view_time": 135},
+      {"date": "2025-11-14", "day_of_week": "Friday", "viewers": 342, "customers": 28, "average_view_time": 147},
+      {"date": "2025-11-15", "day_of_week": "Saturday", "viewers": 367, "customers": 31, "average_view_time": 151},
+      {"date": "2025-11-16", "day_of_week": "Sunday", "viewers": 323, "customers": 25, "average_view_time": 142},
+      {"date": "2025-11-17", "day_of_week": "Monday", "viewers": 301, "customers": 23, "average_view_time": 139},
+      {"date": "2025-11-18", "day_of_week": "Tuesday", "viewers": 314, "customers": 25, "average_view_time": 141},
+      {"date": "2025-11-19", "day_of_week": "Wednesday", "viewers": 329, "customers": 27, "average_view_time": 145},
+      {"date": "2025-11-20", "day_of_week": "Thursday", "viewers": 293, "customers": 21, "average_view_time": 136},
+      {"date": "2025-11-21", "day_of_week": "Friday", "viewers": 348, "customers": 29, "average_view_time": 148},
+      {"date": "2025-11-22", "day_of_week": "Saturday", "viewers": 371, "customers": 32, "average_view_time": 152},
+      {"date": "2025-11-23", "day_of_week": "Sunday", "viewers": 328, "customers": 26, "average_view_time": 143},
+      {"date": "2025-11-24", "day_of_week": "Monday", "viewers": 306, "customers": 24, "average_view_time": 140},
+      {"date": "2025-11-25", "day_of_week": "Tuesday", "viewers": 319, "customers": 26, "average_view_time": 142},
+      {"date": "2025-11-26", "day_of_week": "Wednesday", "viewers": 335, "customers": 28, "average_view_time": 146},
+      {"date": "2025-11-27", "day_of_week": "Thursday", "viewers": 297, "customers": 22, "average_view_time": 137}
+    ],
+    "ranking": [
+      {
+        "rank": 1,
+        "billboard_id": "billboard_itaewon",
+        "name": "Itaewon Main Street Billboard",
+        "location": "Itaewon Station Exit 2",
+        "views": 789,
+        "visit_by_view": 9.5,
+        "viewing_duration": 156
+      },
+      {
+        "rank": 2,
+        "billboard_id": "billboard_sinchon",
+        "name": "Sinchon Rotary Digital Display",
+        "location": "Sinchon Station Plaza",
+        "views": 678,
+        "visit_by_view": 8.1,
+        "viewing_duration": 148
+      },
+      {
+        "rank": 3,
+        "billboard_id": "billboard_jamsil",
+        "name": "Jamsil Lotte World Tower",
+        "location": "Jamsil Sports Complex",
+        "views": 567,
+        "visit_by_view": 7.3,
+        "viewing_duration": 139
+      },
+      {
+        "rank": 4,
+        "billboard_id": "billboard_yeouido",
+        "name": "Yeouido Financial District",
+        "location": "Yeouido IFC Mall",
+        "views": 412,
+        "visit_by_view": 6.2,
+        "viewing_duration": 125
+      }
+    ]
+  }
+}

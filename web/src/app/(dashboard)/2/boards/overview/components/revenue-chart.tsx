@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useState, useEffect } from "react"
+import mockData30d from "../data/mock-analytics-30d.json"
 
 interface DailyHistory {
   date: string
@@ -95,13 +96,40 @@ export default function RevenueChart({ dailyHistory: initialDailyHistory, orgId 
   // Track if this is the initial mount
   const [isInitialMount, setIsInitialMount] = useState(true)
 
-  // Fetch data when time range changes (but not on initial mount)
+  // Load mock data when time range changes (but not on initial mount)
   useEffect(() => {
     if (isInitialMount) {
       setIsInitialMount(false)
       return
     }
 
+    const loadMockData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // Use 30-day mock data for 30d and all ranges
+        if (timeRange === "30d" || timeRange === "all") {
+          setDailyHistory(mockData30d.data.daily_history as DailyHistory[])
+        } else {
+          // For 7d, use the initial data
+          setDailyHistory(initialDailyHistory)
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load mock data"
+        setError(errorMessage)
+        console.error("Error loading mock data:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadMockData()
+
+    /* COMMENTED OUT - API CALL (use when backend is ready)
     const fetchAnalytics = async () => {
       try {
         setIsLoading(true)
@@ -133,9 +161,9 @@ export default function RevenueChart({ dailyHistory: initialDailyHistory, orgId 
         setIsLoading(false)
       }
     }
-
     fetchAnalytics()
-  }, [timeRange, orgId])
+    */
+  }, [timeRange, orgId, initialDailyHistory])
 
   // Filter data based on selected time range (for display)
   const getFilteredData = () => {

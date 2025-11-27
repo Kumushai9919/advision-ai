@@ -1,5 +1,3 @@
-import Image from "next/image"
-
 export function Logo({
   className = "",
   width = 24,
@@ -10,12 +8,8 @@ export function Logo({
   height?: number
 }) {
   return (
-    <Image
-      src="/coupang.png"
-      width={width}
-      height={height}
-      className={className}
-      alt="Shadcnblocks"
-    />
+    <span className={`font-bold text-xl ${className}`}>
+      AdVision
+    </span>
   )
 }

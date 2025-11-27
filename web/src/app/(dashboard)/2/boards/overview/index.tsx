@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import RevenueChart from "./components/revenue-chart"
 import Ads from "./components/ads"
 import Stats from "./components/stats"
+import mockData from "./data/mock-analytics.json"
 
 interface AnalyticsResponse {
   success: boolean
@@ -48,6 +49,25 @@ export default function Overview() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Using mock data instead of API
+    const loadMockData = async () => {
+      try {
+        setIsLoading(true)
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500))
+        setAnalyticsData(mockData as AnalyticsResponse)
+        setError(null)
+      } catch (err) {
+        setError("Failed to load mock data")
+        console.error("Error loading mock data:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadMockData()
+
+    /* COMMENTED OUT - API CALL (use when backend is ready)
     const fetchAnalytics = async () => {
       try {
         setIsLoading(true)
@@ -57,7 +77,6 @@ export default function Overview() {
         const startDate = "2025-11-03"
         const endDate = "2025-11-09"
 
-        // Use environment variable or fallback to localhost
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
         const url = `${apiBaseUrl}/api/v1/analytics/?org_id=${orgId}&start_date=${startDate}&end_date=${endDate}`
 
@@ -68,7 +87,6 @@ export default function Overview() {
           headers: {
             "Content-Type": "application/json",
           },
-          // Add mode and credentials for CORS if needed
           mode: "cors",
         })
 
@@ -97,8 +115,8 @@ export default function Overview() {
         setIsLoading(false)
       }
     }
-
     fetchAnalytics()
+    */
   }, [])
 
   if (isLoading) {
@@ -137,16 +155,9 @@ export default function Overview() {
           <RevenueChart dailyHistory={analyticsData.data.daily_history} orgId={analyticsData.org_id} />
         </div>
       </div>
-      {/* <div className="grid auto-rows-auto grid-cols-3 gap-4 md:grid-cols-6 lg:grid-cols-9">
-        <Stats analyticsData={analyticsData} />
-      </div>
-      <div className="w-full">
-        <RevenueChart dailyHistory={analyticsData.data.daily_history} />
-      </div>
-
       <div className="w-full">
         <Ads ranking={analyticsData.data.ranking} />
-      </div> */}
+      </div>
     </div>
   )
 }

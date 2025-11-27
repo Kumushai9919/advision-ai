@@ -1,0 +1,109 @@
+{
+  "success": true,
+  "org_id": "second",
+  "period": {
+    "start": "2025-11-03",
+    "end": "2025-11-09",
+    "days": 7
+  },
+  "data": {
+    "summary": {
+      "total_viewers": 2134,
+      "difference_total_viewers_percentage": 22.7,
+      "total_new_viewers": 324,
+      "total_customers": 156,
+      "difference_total_customers_percentage": 18.4,
+      "average_view_time": 142,
+      "difference_average_view_time": 11.2
+    },
+    "daily_history": [
+      {
+        "date": "2025-11-03",
+        "day_of_week": "Sunday",
+        "viewers": 287,
+        "customers": 19,
+        "average_view_time": 138
+      },
+      {
+        "date": "2025-11-04",
+        "day_of_week": "Monday",
+        "viewers": 312,
+        "customers": 24,
+        "average_view_time": 145
+      },
+      {
+        "date": "2025-11-05",
+        "day_of_week": "Tuesday",
+        "viewers": 328,
+        "customers": 26,
+        "average_view_time": 148
+      },
+      {
+        "date": "2025-11-06",
+        "day_of_week": "Wednesday",
+        "viewers": 298,
+        "customers": 21,
+        "average_view_time": 139
+      },
+      {
+        "date": "2025-11-07",
+        "day_of_week": "Thursday",
+        "viewers": 276,
+        "customers": 18,
+        "average_view_time": 135
+      },
+      {
+        "date": "2025-11-08",
+        "day_of_week": "Friday",
+        "viewers": 321,
+        "customers": 25,
+        "average_view_time": 147
+      },
+      {
+        "date": "2025-11-09",
+        "day_of_week": "Saturday",
+        "viewers": 312,
+        "customers": 23,
+        "average_view_time": 142
+      }
+    ],
+    "ranking": [
+      {
+        "rank": 1,
+        "billboard_id": "billboard_itaewon",
+        "name": "Itaewon Main Street Billboard",
+        "location": "Itaewon Station Exit 2",
+        "views": 789,
+        "visit_by_view": 9.5,
+        "viewing_duration": 156
+      },
+      {
+        "rank": 2,
+        "billboard_id": "billboard_sinchon",
+        "name": "Sinchon Rotary Digital Display",
+        "location": "Sinchon Station Plaza",
+        "views": 678,
+        "visit_by_view": 8.1,
+        "viewing_duration": 148
+      },
+      {
+        "rank": 3,
+        "billboard_id": "billboard_jamsil",
+        "name": "Jamsil Lotte World Tower",
+        "location": "Jamsil Sports Complex",
+        "views": 567,
+        "visit_by_view": 7.3,
+        "viewing_duration": 139
+      },
+      {
+        "rank": 4,
+        "billboard_id": "billboard_yeouido",
+        "name": "Yeouido Financial District",
+        "location": "Yeouido IFC Mall",
+        "views": 412,
+        "visit_by_view": 6.2,
+        "viewing_duration": 125
+      }
+    ]
+  }
+}
